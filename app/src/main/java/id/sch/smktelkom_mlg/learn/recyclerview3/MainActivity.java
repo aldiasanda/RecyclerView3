@@ -10,7 +10,6 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
-import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 
@@ -19,11 +18,20 @@ import java.util.ArrayList;
 import id.sch.smktelkom_mlg.learn.recyclerview3.adapter.HotelAdapter;
 import id.sch.smktelkom_mlg.learn.recyclerview3.model.Hotel;
 
+
 public class MainActivity extends AppCompatActivity implements HotelAdapter.IHotelAdapter {
     public static final String HOTEL = "hotel";
     public static final int REQUEST_CODE_ADD = 88;
+    public static final int REQUEST_CODE_EDIT = 99;
+
     ArrayList<Hotel> mList = new ArrayList<>();
     HotelAdapter mAdapter;
+    int itemPos;
+
+    ArrayList<Hotel> mListAll = new ArrayList<>();
+    boolean isFiltered;
+    ArrayList<Integer> mListMapFilter = new ArrayList<>();
+    String mQuery;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,17 +62,6 @@ public class MainActivity extends AppCompatActivity implements HotelAdapter.IHot
         startActivityForResult(new Intent(this, InputActivity.class), REQUEST_CODE_ADD);
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_CODE_ADD && requestCode == RESULT_OK) {
-            Hotel hotel = (Hotel) data.getSerializableExtra(HOTEL);
-            mList.add(hotel);
-            mAdapter.notifyDataSetChanged();
-        }
-    }
-
-
     private void fillData() {
         Resources resources = getResources();
         String[] arJudul = resources.getStringArray(R.array.places);
@@ -79,21 +76,41 @@ public class MainActivity extends AppCompatActivity implements HotelAdapter.IHot
                     + resources.getResourcePackageName(id) + '/'
                     + resources.getResourceTypeName(id) + '/'
                     + resources.getResourceEntryName(id);
-
         }
         a.recycle();
 
         for (int i = 0; i < arJudul.length; i++) {
-            mList.add(new Hotel(arJudul[i], arDeskripsi[i], arDetail[i], arLokasi[i], arFoto[i]));
+            mList.add(new Hotel(arJudul[i], arDeskripsi[i],
+                    arDetail[i], arLokasi[i], arFoto[i]));
         }
         mAdapter.notifyDataSetChanged();
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_main, menu);
-        return true;
+
+    private void doFilter(String query) {
+        if (!isFiltered) {
+            mListAll.clear();
+            mListAll.addAll(mList);
+            isFiltered = true;
+        }
+
+        mList.clear();
+        if (query == null || query.isEmpty()) {
+            mList.addAll(mListAll);
+            isFiltered = false;
+        } else {
+            mListMapFilter.clear();
+            for (int i = 0; i < mListAll.size(); i++) {
+                Hotel hotel = mListAll.get(i);
+                if (hotel.judul.toLowerCase().contains(query) ||
+                        hotel.deskripsi.toLowerCase().contains(query) ||
+                        hotel.lokasi.toLowerCase().contains(query)) {
+                    mList.add(hotel);
+                    mListMapFilter.add(i);
+                }
+            }
+        }
+        mAdapter.notifyDataSetChanged();
     }
 
     @Override
@@ -116,5 +133,48 @@ public class MainActivity extends AppCompatActivity implements HotelAdapter.IHot
         Intent intent = new Intent(this, DetailActivity.class);
         intent.putExtra(HOTEL, mList.get(pos));
         startActivity(intent);
+    }
+
+    @Override
+    public void doEdit(int pos) {
+        itemPos = pos;
+        Intent intent = new Intent(this, InputActivity.class);
+        intent.putExtra(HOTEL, mList.get(pos));
+        startActivityForResult(intent, REQUEST_CODE_EDIT);
+    }
+
+    @Override
+    public void doDelete(int pos) {
+
+    }
+
+
+    @Override
+    public void doFav(int pos) {
+
+    }
+
+    @Override
+    public void doShare(int pos) {
+
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_CODE_ADD && resultCode == RESULT_OK) {
+            Hotel hotel = (Hotel) data.getSerializableExtra(HOTEL);
+            mList.add(hotel);
+            if (isFiltered) mList.add(hotel);
+            doFilter(mQuery);
+            //mAdapter.notifyDataSetChanged();
+        } else if (requestCode == REQUEST_CODE_EDIT && resultCode == RESULT_OK) {
+            Hotel hotel = (Hotel) data.getSerializableExtra(HOTEL);
+            mList.remove(itemPos);
+            if (isFiltered) mListAll.remove(mListMapFilter.get(itemPos).intValue());
+            mList.add(itemPos, hotel);
+            if (isFiltered) mListAll.add(mListMapFilter.get(itemPos), hotel);
+            mAdapter.notifyDataSetChanged();
+        }
     }
 }
